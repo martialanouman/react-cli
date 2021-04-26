@@ -1,5 +1,4 @@
-react-cli
-=========
+# react-cli
 
 CLI tool for React.js
 
@@ -9,11 +8,15 @@ CLI tool for React.js
 [![License](https://img.shields.io/npm/l/react-cli.svg)](https://github.com/DewZ89/react-cli/blob/master/package.json)
 
 <!-- toc -->
-* [Usage](#usage)
-* [Commands](#commands)
+
+- [Usage](#usage)
+- [Commands](#commands)
 <!-- tocstop -->
+
 # Usage
+
 <!-- usage -->
+
 ```sh-session
 $ npm install -g react-cli
 $ react COMMAND
@@ -25,11 +28,15 @@ USAGE
   $ react COMMAND
 ...
 ```
+
 <!-- usagestop -->
+
 # Commands
+
 <!-- commands -->
-* [`react hello [FILE]`](#react-hello-file)
-* [`react help [COMMAND]`](#react-help-command)
+
+- [`react hello [FILE]`](#react-hello-file)
+- [`react help [COMMAND]`](#react-help-command)
 
 ## `react hello [FILE]`
 
@@ -67,4 +74,5 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.2/src/commands/help.ts)_
+
 <!-- commandsstop -->
