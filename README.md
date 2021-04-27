@@ -9,9 +9,29 @@ CLI tool for React.js
 
 <!-- toc -->
 
+- [Commit Guideline](#commit-guideline)
 - [Usage](#usage)
 - [Commands](#commands)
 <!-- tocstop -->
+
+# Commit guideline
+
+To ensure consistent, readable commit message and automatically compute next semver version, we use **AngularJS's commit message** convention a.k.a [Conventional-changelog](https://github.com/ajoslin/conventional-changelog).
+To use this convention in our commit with use the npm [Commitizen](https://github.com/commitizen/cz-cli) module. Therefore, to make a commit you must follow these steps:
+
+1. Stage your changes, typically:
+
+```sh-session
+git add .
+```
+
+2. Run
+
+```sh-session
+yarn commit
+```
+
+3. Then, fill all the information needed
 
 # Usage
 
