@@ -12,6 +12,7 @@ CLI tool for React.js
 - [Commit Guideline](#commit-guideline)
 - [Usage](#usage)
 - [Commands](#commands)
+- [Maintainers](#maintainers)
 <!-- tocstop -->
 
 # Commit guideline
@@ -96,3 +97,8 @@ OPTIONS
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.2/src/commands/help.ts)_
 
 <!-- commandsstop -->
+
+# Maintainers
+
+- [@DewZ89](https://github.com/dewz89)
+- [@juvpengele](https://github.com/juvpengele)
