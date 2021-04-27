@@ -6,6 +6,7 @@ CLI tool for React.js
 [![Version](https://img.shields.io/npm/v/react-cli.svg)](https://npmjs.org/package/react-cli)
 [![Downloads/week](https://img.shields.io/npm/dw/react-cli.svg)](https://npmjs.org/package/react-cli)
 [![License](https://img.shields.io/npm/l/react-cli.svg)](https://github.com/DewZ89/react-cli/blob/master/package.json)
+[![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
 
 <!-- toc -->
 
