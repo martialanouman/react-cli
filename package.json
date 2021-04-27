@@ -65,7 +65,8 @@
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
     "version": "oclif-dev readme && git add README.md",
-    "commit": "cz"
+    "commit": "yarn lint && cz",
+    "lint": "eslint '*/**/*.{js,ts}' --quiet --fix"
   },
   "types": "lib/index.d.ts",
   "config": {
