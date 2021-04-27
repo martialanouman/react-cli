@@ -27,9 +27,12 @@
     "eslint": "^5.13",
     "eslint-config-oclif": "^3.1",
     "eslint-config-oclif-typescript": "^0.1",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-prettier": "^3.4.0",
     "globby": "^10",
     "mocha": "^5",
     "nyc": "^14",
+    "prettier": "^2.2.1",
     "ts-node": "^8",
     "typescript": "^3.3"
   },
@@ -62,7 +65,8 @@
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
     "version": "oclif-dev readme && git add README.md",
-    "commit": "cz"
+    "commit": "yarn lint && cz",
+    "lint": "eslint '*/**/*.{js,ts}' --quiet --fix"
   },
   "types": "lib/index.d.ts",
   "config": {
