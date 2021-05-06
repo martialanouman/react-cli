@@ -9,11 +9,11 @@ CLI tool for React.js
 [![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
 
 <!-- toc -->
-
-- [Commit Guideline](#commit-guideline)
-- [Usage](#usage)
-- [Commands](#commands)
-- [Maintainers](#maintainers)
+* [react-cli](#react-cli)
+* [Commit guideline](#commit-guideline)
+* [Usage](#usage)
+* [Commands](#commands)
+* [Maintainers](#maintainers)
 <!-- tocstop -->
 
 # Commit guideline
@@ -38,7 +38,6 @@ yarn commit
 # Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g react-cli
 $ react COMMAND
@@ -50,35 +49,29 @@ USAGE
   $ react COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 # Commands
 
 <!-- commands -->
+* [`react create [FILE]`](#react-create-file)
+* [`react help [COMMAND]`](#react-help-command)
 
-- [`react hello [FILE]`](#react-hello-file)
-- [`react help [COMMAND]`](#react-help-command)
-
-## `react hello [FILE]`
+## `react create [FILE]`
 
 describe the command here
 
 ```
 USAGE
-  $ react hello [FILE]
+  $ react create [FILE]
 
 OPTIONS
   -f, --force
   -h, --help       show CLI help
   -n, --name=name  name to print
-
-EXAMPLE
-  $ react hello
-  hello world from ./src/hello.ts!
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/DewZ89/react-cli/blob/v0.0.0/src/commands/hello.ts)_
+_See code: [src/commands/create.ts](https://github.com/DewZ89/react-cli/blob/v0.0.0/src/commands/create.ts)_
 
 ## `react help [COMMAND]`
 
@@ -96,7 +89,6 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.2/src/commands/help.ts)_
-
 <!-- commandsstop -->
 
 # Maintainers
