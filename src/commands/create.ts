@@ -1,10 +1,11 @@
 import { flags } from '@oclif/command'
 import Command from '../base'
 import * as inquirer from 'inquirer'
-import { ChildProcess, spawn } from 'child_process'
 import cli from 'cli-ux'
+import { writeFileSync } from 'fs'
 
-import type { Bundler, PackageManager, PrettierConfigSet } from '../types/create'
+import { execSync } from '../process'
+import type { Bundler, PackageManager } from '../types/create'
 import { PACKAGE_MANAGER_FLAG_OPTIONS, BUNDLER_FLAG_OPTIONS, PRETTIER_CONFIG_SET } from '../constants'
 
 const INVALID_APP_NAME_ERROR = 'Application name must contains only letters, numbers and dashes'
@@ -14,7 +15,7 @@ export default class Create extends Command {
 
   static examples = [
     'react create <appName>',
-    'react create <appName> --bundler webpack --pkg yarn --prettier --prettier-config flexible --ts',
+    'react create <appName> --bundler webpack --pkg yarn --prettier --ts',
     'react create <appName> --bundler snowpack',
   ]
 
@@ -26,22 +27,14 @@ export default class Create extends Command {
       options: PACKAGE_MANAGER_FLAG_OPTIONS,
     }),
     prettier: flags.boolean({ description: 'Use prettier code formatter', default: undefined }),
-    'prettier-config': flags.string({
-      description: 'Prettier config to use',
-      dependsOn: ['prettier'],
-      options: PRETTIER_CONFIG_SET,
-    }),
     ts: flags.boolean({ char: 't', description: 'Use TypeScript', default: undefined }),
   }
 
-  static args = [{ name: 'name', description: 'Application name' }]
+  static args = [{ name: 'name', description: 'Application name', required: true }]
 
   async run() {
-    const { args, flags } = this.parse(Create)
-    let { bundler, pkg, prettier, 'prettier-config': prettierConfig, ts } = flags
-    let { name } = args
-
-    name = await this.handleName(name)
+    const { flags } = this.parse(Create)
+    let { bundler, pkg, prettier, ts } = flags
 
     bundler = await this.handleBundler(bundler)
 
@@ -49,26 +42,17 @@ export default class Create extends Command {
 
     pkg = await this.handlePackageManager(pkg)
 
+    // lint = await this.handleLint(lint)
+
     prettier = await this.handlePrettier(prettier)
 
-    prettierConfig = await this.handlePrettierConfig(prettier, prettierConfig)
+    const confirm = await this.handleAppCreateConfirm()
 
-    const response = await inquirer.prompt({
-      name: 'confirm',
-      type: 'confirm',
-      message: `You are about to create a new React app named "${name}" and powered by ${bundler} bundler. Proceed?`,
-      default: true,
-    })
-
-    if (response.confirm) {
-      cli.action.start(`Creating app...`)
-
+    if (confirm) {
       this.createApp({
-        name,
         pkg: pkg as PackageManager,
         bundler: bundler as Bundler,
         prettier,
-        prettierConfig: prettierConfig as PrettierConfigSet,
         ts,
       })
     } else {
@@ -76,20 +60,28 @@ export default class Create extends Command {
     }
   }
 
-  private async handlePrettierConfig(prettier: boolean, prettierConfig: string | undefined) {
-    if (prettier) {
+  private async handleAppCreateConfirm(): Promise<boolean> {
+    const { name } = this.parse(Create).args
+    const response = await inquirer.prompt({
+      name: 'confirm',
+      type: 'confirm',
+      message: `You are about to create a new React app named "${name}". Proceed?`,
+      default: true,
+    })
+
+    return response.confirm
+  }
+
+  private async handleLint(lint: boolean) {
+    if (lint === undefined) {
       const response = await inquirer.prompt({
-        name: 'prettierConfig',
-        message: 'Choose a prettier config set',
-        type: 'list',
-        choices: [
-          { name: 'Flexible', value: 'flexible', short: 'Flexible code formatting' },
-          { name: 'Strict', value: 'strict', short: 'Strict code formatting' },
-        ],
+        name: 'lint',
+        message: 'Do you to use ESLint?',
+        type: 'confirm',
       })
-      prettierConfig = response.prettierConfig
+      lint = response.lint
     }
-    return prettierConfig
+    return lint
   }
 
   private async handlePrettier(prettier: boolean) {
@@ -173,15 +165,11 @@ export default class Create extends Command {
     return Boolean(/^([0-9a-zA-Z-])*$/gi.test(name))
   }
 
-  private createApp(options: {
-    name: string
-    bundler: Bundler
-    pkg: PackageManager
-    prettier: boolean
-    prettierConfig: PrettierConfigSet
-    ts: boolean
-  }) {
-    const { name, bundler, pkg, prettier, prettierConfig, ts } = options
+  private createApp(options: { bundler: Bundler; pkg: PackageManager; prettier: boolean; ts: boolean }) {
+    cli.action.start('Creating app')
+
+    const { bundler, pkg, prettier, ts } = options
+    const { name } = this.parse(Create).args
 
     if (bundler === 'webpack') {
       this.createWebpackApp({ name, pkg, ts })
@@ -190,24 +178,95 @@ export default class Create extends Command {
     if (bundler === 'snowpack') {
       this.createSnowpackApp({ name, pkg, ts })
     }
+
+    cli.action.stop('Done.')
+
+    this.installAndSetPrettierConfiguration({ prettier, pkg, name })
+  }
+
+  private async installAndSetESLintConfiguration(options: { pkg: PackageManager; lint: boolean; ts: boolean }) {
+    const { pkg, lint, ts } = options
+    if (lint) {
+      cli.action.start('Setting ESLint up')
+
+      this.installESLint(pkg, ts)
+
+      cli.action.stop('Done.')
+    }
+  }
+
+  private installESLint(pkg: PackageManager, ts: boolean) {
+    const options = ['eslint', ...(ts ? ['@typescript-eslint/parser', '@typescript-eslint/eslint-plugin'] : [])]
+    this.installDev(pkg, options)
+  }
+
+  private async installAndSetPrettierConfiguration(options: { prettier: boolean; name: string; pkg: PackageManager }) {
+    const { prettier, pkg } = options
+    if (prettier) {
+      cli.action.start('Setting Prettier up')
+
+      this.installPrettier(pkg)
+
+      cli.action.stop('Done.')
+    }
+  }
+
+  private installPrettier(pkg: PackageManager) {
+    const options = ['prettier', 'eslint-config-prettier', 'eslint-plugin-prettier']
+    this.installDev(pkg, options)
+    this.addPrettierRules()
+  }
+
+  private addPrettierRules() {
+    const packageJson = this.parsePackageJson()
+
+    packageJson.eslintConfig.extends.push('prettier')
+    packageJson.prettier = PRETTIER_CONFIG_SET
+    packageJson.scripts.lint = "eslint '*/**/*.{js,ts,tsx}' --quiet --fix"
+
+    writeFileSync(`${this.getProjectPath()}/package.json`, JSON.stringify(packageJson, undefined, 2), {
+      encoding: 'UTF-8',
+    })
+  }
+
+  private installDev(pkg: PackageManager, mergeOptions: string[]) {
+    const installCommand = pkg === 'npm' ? 'install' : 'add'
+    const devFlag = pkg === 'npm' ? '-D' : '--dev'
+    const options = [installCommand, ...mergeOptions, devFlag]
+
+    execSync(pkg, options, { cwd: this.getProjectPath() })
+  }
+
+  private getProjectPath() {
+    const { name } = this.parse(Create).args
+    const cwd = this.getCwd()
+    return `${cwd}/${name}`
+  }
+
+  private parsePackageJson(): Record<string, any> {
+    const packageJsonString = execSync('cat', ['package.json'], { cwd: this.getProjectPath() }).stdout.toString()
+    return JSON.parse(packageJsonString)
+  }
+
+  private getCwd(): string {
+    const process = execSync('pwd')
+    return process.stdout.toString().replace('\n', '')
   }
 
   private createWebpackApp(options: { name: string; ts: boolean; pkg: PackageManager }) {
     const { name, pkg, ts } = options
+
     const createCommandOptions = ['create-react-app', name]
     if (ts) createCommandOptions.push('--template', 'typescript')
     if (pkg === 'npm') createCommandOptions.push('--use-npm')
 
-    this.handleProcess(spawn('npx', createCommandOptions))
+    const res = execSync('npx', createCommandOptions)
+    if (res.status !== 0) {
+      this.error(res.error as Error)
+    }
   }
 
-  private createSnowpackApp(options: { name: string; ts: boolean; pkg: PackageManager }) {
+  private createSnowpackApp(_options: { name: string; ts: boolean; pkg: PackageManager }) {
     cli.action.stop('Not implemented')
-  }
-
-  private handleProcess(child: ChildProcess) {
-    // child.stdout.on('data', (data) => this.log(data.toString()))
-    child.stderr.on('data', (data) => this.warn(data.toString()))
-    child.on('exit', () => cli.action.stop('Done. Enjoy!'))
   }
 }
