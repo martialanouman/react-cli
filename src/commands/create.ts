@@ -6,21 +6,31 @@ import { writeFileSync } from 'fs'
 
 import { execSync } from '../process'
 import type { Bundler, PackageManager } from '../types/create'
-import { PACKAGE_MANAGER_FLAG_OPTIONS, BUNDLER_FLAG_OPTIONS, PRETTIER_CONFIG_SET } from '../constants'
+import {
+  PACKAGE_MANAGER_FLAG_OPTIONS,
+  BUNDLER_FLAG_OPTIONS,
+  PRETTIER_CONFIG_SET,
+} from '../constants'
+import { reactRouterTemplate } from '../templates'
+import { SpawnSyncReturns } from 'child_process'
 
 const INVALID_APP_NAME_ERROR = 'Application name must contains only letters, numbers and dashes'
 
 export default class Create extends Command {
-  static description = 'Initialize a new React.js application'
+  static description = 'Create a new React application'
 
   static examples = [
     'react create <appName>',
-    'react create <appName> --bundler webpack --pkg yarn --prettier --ts --git',
+    'react create <appName> --bundler webpack --pkg yarn --prettier --ts --rps --routing',
     'react create <appName> --bundler snowpack',
   ]
 
   static flags = {
-    bundler: flags.string({ char: 'b', description: 'Application bundler', options: BUNDLER_FLAG_OPTIONS }),
+    bundler: flags.string({
+      char: 'b',
+      description: 'Application bundler',
+      options: BUNDLER_FLAG_OPTIONS,
+    }),
     pkg: flags.string({
       char: 'p',
       description: 'Package manager to use',
@@ -28,13 +38,21 @@ export default class Create extends Command {
     }),
     prettier: flags.boolean({ description: 'Use prettier code formatter', default: undefined }),
     ts: flags.boolean({ char: 't', description: 'Use TypeScript', default: undefined }),
+    rps: flags.boolean({
+      char: 's',
+      description: 'Use recommended project structure',
+      default: undefined,
+    }),
+    routing: flags.boolean({ char: 'r', description: 'Add routing feature', default: undefined }),
   }
 
   static args = [{ name: 'name', description: 'Application name', required: true }]
 
   async run() {
     const { flags } = this.parse(Create)
-    let { bundler, pkg, prettier, ts } = flags
+    let { bundler, pkg, prettier, ts, rps, routing } = flags
+
+    this.clearStdout()
 
     bundler = await this.handleBundler(bundler)
 
@@ -42,9 +60,11 @@ export default class Create extends Command {
 
     pkg = await this.handlePackageManager(pkg)
 
-    // lint = await this.handleLint(lint)
+    routing = await this.handleRouting(routing)
 
     prettier = await this.handlePrettier(prettier)
+
+    rps = await this.handleUseRecommendedProjectStructure(rps)
 
     const confirm = await this.handleAppCreateConfirm()
 
@@ -54,6 +74,8 @@ export default class Create extends Command {
         bundler: bundler as Bundler,
         prettier,
         ts,
+        rps,
+        routing,
       })
     } else {
       this.log('App creation cancelled')
@@ -72,23 +94,35 @@ export default class Create extends Command {
     return response.confirm
   }
 
-  private async handleLint(lint: boolean) {
-    if (lint === undefined) {
+  private async handleUseRecommendedProjectStructure(rps: boolean) {
+    if (rps === undefined) {
       const response = await inquirer.prompt({
-        name: 'lint',
-        message: 'Do you to use ESLint?',
+        name: 'rps',
+        message: 'Do you to use recommended project structure?',
         type: 'confirm',
       })
-      lint = response.lint
+      rps = response.rps
     }
-    return lint
+    return rps
+  }
+
+  private async handleRouting(routing: boolean) {
+    if (routing === undefined) {
+      const response = await inquirer.prompt({
+        name: 'routing',
+        message: 'Do you want to add routing feature?',
+        type: 'confirm',
+      })
+      routing = response.routing
+    }
+    return routing
   }
 
   private async handlePrettier(prettier: boolean) {
     if (prettier === undefined) {
       const response = await inquirer.prompt({
         name: 'prettier',
-        message: 'Do you want to add Prettier code formatter config?',
+        message: 'Do you want to use Prettier?',
         type: 'confirm',
       })
       prettier = response.prettier
@@ -165,10 +199,17 @@ export default class Create extends Command {
     return Boolean(/^([0-9a-zA-Z-])*$/gi.test(name))
   }
 
-  private createApp(options: { bundler: Bundler; pkg: PackageManager; prettier: boolean; ts: boolean }) {
+  private createApp(options: {
+    bundler: Bundler
+    pkg: PackageManager
+    prettier: boolean
+    ts: boolean
+    routing: boolean
+    rps: boolean
+  }) {
     cli.action.start('Creating app')
 
-    const { bundler, pkg, prettier, ts } = options
+    const { bundler, pkg, prettier, ts, routing } = options
     const { name } = this.parse(Create).args
 
     if (bundler === 'webpack') {
@@ -181,40 +222,60 @@ export default class Create extends Command {
 
     cli.action.stop('Done.')
 
-    this.installAndSetPrettierConfiguration({ prettier, pkg, name })
-  }
-
-  private async installAndSetESLintConfiguration(options: { pkg: PackageManager; lint: boolean; ts: boolean }) {
-    const { pkg, lint, ts } = options
-    if (lint) {
-      cli.action.start('Setting ESLint up')
-
-      this.installESLint(pkg, ts)
-
-      cli.action.stop('Done.')
+    if (routing) {
+      this.installAndBootstrapRouting(pkg, ts)
     }
-  }
 
-  private installESLint(pkg: PackageManager, ts: boolean) {
-    const options = ['eslint', ...(ts ? ['@typescript-eslint/parser', '@typescript-eslint/eslint-plugin'] : [])]
-    this.installDev(pkg, options)
-  }
-
-  private async installAndSetPrettierConfiguration(options: { prettier: boolean; name: string; pkg: PackageManager }) {
-    const { prettier, pkg } = options
     if (prettier) {
-      cli.action.start('Setting Prettier up')
-
-      this.installPrettier(pkg)
-
-      cli.action.stop('Done.')
+      this.installAndSetPrettierConfiguration(pkg)
     }
+  }
+
+  private installAndBootstrapRouting(pkg: PackageManager, ts: boolean) {
+    cli.action.start('Setting up Routing')
+
+    this.installReactRouter(ts, pkg)
+    this.addBaseRoutesComponent(ts)
+
+    cli.action.stop('Done.')
+  }
+
+  private installReactRouter(ts: boolean, pkg: PackageManager) {
+    const res = this.installPackage(pkg, ['react-router-dom'])
+    if (res.status !== 0) {
+      this.error(res.stderr.toString())
+    }
+
+    if (ts) {
+      const res = this.installPackage(pkg, ['@types/react-router-dom'], true)
+      if (res.status !== 0) {
+        this.error(res.stderr.toString())
+      }
+    }
+  }
+
+  private addBaseRoutesComponent(ts: boolean) {
+    const extension = ts ? 'tsx' : 'js'
+    writeFileSync(`${this.getProjectPath()}/src/Routes.${extension}`, reactRouterTemplate, {
+      encoding: 'UTF-8',
+    })
+  }
+
+  private async installAndSetPrettierConfiguration(pkg: PackageManager) {
+    cli.action.start('Setting Prettier up')
+
+    this.installPrettier(pkg)
+    this.addPrettierRules()
+
+    cli.action.stop('Done.')
   }
 
   private installPrettier(pkg: PackageManager) {
     const options = ['prettier', 'eslint-config-prettier', 'eslint-plugin-prettier']
-    this.installDev(pkg, options)
-    this.addPrettierRules()
+    const res = this.installPackage(pkg, options)
+    if (res.status !== 0) {
+      this.error(res.stderr.toString())
+    }
   }
 
   private addPrettierRules() {
@@ -224,17 +285,28 @@ export default class Create extends Command {
     packageJson.prettier = PRETTIER_CONFIG_SET
     packageJson.scripts.lint = "eslint '*/**/*.{js,ts,tsx}' --quiet --fix"
 
-    writeFileSync(`${this.getProjectPath()}/package.json`, JSON.stringify(packageJson, undefined, 2), {
-      encoding: 'UTF-8',
-    })
+    writeFileSync(
+      `${this.getProjectPath()}/package.json`,
+      JSON.stringify(packageJson, undefined, 2),
+      {
+        encoding: 'UTF-8',
+      },
+    )
   }
 
-  private installDev(pkg: PackageManager, mergeOptions: string[]) {
+  private installPackage(
+    pkg: PackageManager,
+    mergeOptions: string[],
+    dev?: boolean,
+  ): SpawnSyncReturns<Buffer> {
     const installCommand = pkg === 'npm' ? 'install' : 'add'
     const devFlag = pkg === 'npm' ? '-D' : '--dev'
-    const options = [installCommand, ...mergeOptions, devFlag]
+    const options = [installCommand, ...mergeOptions]
+    if (dev) {
+      options.push(devFlag)
+    }
 
-    execSync(pkg, options, { cwd: this.getProjectPath() })
+    return execSync(pkg, options, { cwd: this.getProjectPath() })
   }
 
   private getProjectPath() {
@@ -244,7 +316,9 @@ export default class Create extends Command {
   }
 
   private parsePackageJson(): Record<string, any> {
-    const packageJsonString = execSync('cat', ['package.json'], { cwd: this.getProjectPath() }).stdout.toString()
+    const packageJsonString = execSync('cat', ['package.json'], {
+      cwd: this.getProjectPath(),
+    }).stdout.toString()
     return JSON.parse(packageJsonString)
   }
 
@@ -262,11 +336,20 @@ export default class Create extends Command {
 
     const res = execSync('npx', createCommandOptions)
     if (res.status !== 0) {
-      this.error(res.error as Error)
+      this.error(res.stderr.toString())
     }
   }
 
-  private createSnowpackApp(_options: { name: string; ts: boolean; pkg: PackageManager }) {
-    cli.action.stop('Not implemented')
+  private createSnowpackApp(options: { name: string; ts: boolean; pkg: PackageManager }) {
+    const { name, pkg, ts } = options
+
+    const createCommandOptions = ['create-snowpack-app', name]
+    if (ts) createCommandOptions.push('--template', '@snowpack/app-template-react')
+    if (pkg === 'yarn') createCommandOptions.push('--use-yarn')
+
+    const res = execSync('npx', createCommandOptions)
+    if (res.status !== 0) {
+      this.error(res.stderr.toString())
+    }
   }
 }
