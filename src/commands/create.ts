@@ -15,7 +15,7 @@ export default class Create extends Command {
 
   static examples = [
     'react create <appName>',
-    'react create <appName> --bundler webpack --pkg yarn --prettier --ts',
+    'react create <appName> --bundler webpack --pkg yarn --prettier --ts --git',
     'react create <appName> --bundler snowpack',
   ]
 

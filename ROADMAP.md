@@ -17,7 +17,7 @@ This command will help to easily bootstrap a new React app with latest available
 - TypeScript support
 - ESLint config (?)
 - Prettier support
-- Git support
+- Package manager (Yarn|NPM)
 - Project structure setup (?)
 
 # Component command
